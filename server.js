@@ -7,9 +7,12 @@ const app = express();
 const cors = require('cors');
 const mongoose = require('mongoose');
 
-// Next, add our app.use. We will use cors, express.json to pars JSON request bodies
+// Next, add our app.use. We will use cors, express.json to pars JSON request bodies. App.use is a method provided by express to add middleware functions, which have access to the request and response objects. 
 app.use(cors());
 app.use(express.json());
+// express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
+// express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 
+app.use('/uploads', express.static('uploads'));
 
 // Next, define our connection and connect to MongoDB via Mongoose.
 const connectDB = require('./config/dbConnect');
@@ -18,18 +21,43 @@ connectDB();
 // Next, define our models here
 const UserPost = require('./models/UserPost');
 
+// Here, we will define miscellaneous things. For one, we will use multer which allows us to handle file uploads and store them on the server.
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' }); // Specify the directory where uploaded files will be stored 
+
 // Now, include our requests here
-app.get('/api', (req, res) => {
-    UserPost.find()
-        .then(users => {
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.json(users);
-        })
-        .catch(err => console.error('Error: ', err));
+app.get('/api', async (req, res) => {
+    try {
+        const userPosts = await UserPost.find();
+
+        const userPostsModified = userPosts.map(post => {
+            const modifiedPost = { ...post._doc }; // Create a clone of the document data
+
+            // Check if an image is uploaded or selected for the post
+            if (modifiedPost.img) {
+                if (modifiedPost.img.startsWith('uploads/')) {
+                    // Image uploaded via file upload
+                    modifiedPost.imgUrl = `http://localhost:5000/${modifiedPost.img}`;
+                } else {
+                    // Image selected from browser
+                    modifiedPost.imgUrl = modifiedPost.img;
+                }
+            }
+
+            return modifiedPost;
+        });
+
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.json(userPostsModified);
+    } catch (error) {
+        console.error('Error: ', error);
+        res.statusCode = 500;
+        res.json({ message: 'Internal server error' });
+    }
 });
 
-app.post('/api', async (req, res) => {
+app.post('/api', upload.single('img'), async (req, res) => {
     try {
         const { title } = req.body;
         const existingPost = await UserPost.findOne({ title });
@@ -37,16 +65,27 @@ app.post('/api', async (req, res) => {
         if (existingPost) {
             res.json({ error: 'title already exists' });
         } else {
-            const userPost = await UserPost.create({
+            let imgPath = '';
+            if (req.file) {
+                imgPath = req.file.path;
+            } else if (req.body.img) {
+                // Use the image URL from the form data if an image was selected from the browser
+                imgPath = req.body.img;
+            }
+
+            const userPostData = {
                 "userId": req.body.userId,
                 "author": req.body.author,
                 "title": req.body.title,
                 "subTitle": req.body.subTitle,
                 "submissionTime": req.body.submissionTime,
                 "date": req.body.date,
-                "img": req.body.img,
+                "img": imgPath, // access the path of the uploaded file
                 "paragraph": req.body.paragraph
-            });
+            };
+
+
+            const userPost = await UserPost.create(userPostData);
             res.json({ "message": "Form Submitted" })
         }
     } catch (error) {
@@ -58,10 +97,51 @@ app.post('/api', async (req, res) => {
     }
 });
 
+app.get('/api/:uniqueId', async (req, res) => {
+    try {
+        const uniqueId = req.params.uniqueId;
+        const userPost = await UserPost.findById(uniqueId);
+
+        if (userPost) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+
+            // Construct the image URL based on the image path. This is needed to show the backend image path onto the frontend.
+            if (userPost.img) {
+                if (userPost.img.startsWith('uploads/')) {
+                    userPost.imgUrl = `http://localhost:5000/${userPost.img}`;
+                } else {
+                    userPost.imgUrl = userPost.img;
+                }
+            }
+
+            // Include the image URL into the response now.
+            const responseData = {
+                ...userPost.toObject(),
+                imgUrl: userPost.imgUrl
+            }
+
+            res.json(responseData);
+        } else {
+            res.statusCode = 404;
+            res.json({ message: 'User post not found' })
+        }
+    } catch (error) {
+        console.log('Error: ', error);
+        res.statusCode = 500;
+        res.json({ message: 'Internal server error' });
+    }
+});
+
 app.put('/api/:uniqueId', async (req, res) => {
     try {
         const uniqueId = req.params.uniqueId;
         const updateData = req.body;
+
+        // Check if any required fields are missing or empty
+        if (!updateData.title || !updateData.subTitle || !updateData.author || !updateData.paragraph) {
+            return res.json({ error: 'incomplete form' });
+        }
 
         const updatedPost = await UserPost.findByIdAndUpdate(uniqueId, updateData, {
             new: true,
@@ -69,12 +149,6 @@ app.put('/api/:uniqueId', async (req, res) => {
 
         if (!updatedPost) {
             return res.status(404).json({ error: 'Post not found' });
-        }
-
-        // Check if any required fields are missing or empty
-        if (!updateData.title || !updateData.subTitle || !updateData.author || !updateData.paragraph) {
-            console.log('bad bad');
-            return res.status(200).json({ error: 'incomplete form' });
         }
 
         // Check if no changes were made

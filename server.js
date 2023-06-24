@@ -12,7 +12,7 @@ app.use(cors());
 app.use(express.json());
 // express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
 // express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 
-app.use('/uploads', express.static('uploads'));
+// app.use('/uploads', express.static('uploads'));
 
 // Next, define our connection and connect to MongoDB via Mongoose.
 const connectDB = require('./config/dbConnect');
@@ -28,11 +28,11 @@ const multer = require('multer');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         // The callback will take two parameters, the error and the path we want to save the file to. Null would mean there's no error.
-        cb(null, 'public/images');
+        cb(null, 'uploads/');
     },
     filename: (req, file, cb) => {
         // Name of file on server will be the same name as the file on the client side. Otherwise, Multer will give the file a random name.
-        cb(null, file.originalname);
+        cb(null, file.originalname + Date.now());
     }
 });
 
@@ -51,13 +51,12 @@ const upload = multer({ storage: storage, fileFilter: imageFileFilter });
 app.get('/api', async (req, res) => {
     try {
         const userPosts = await UserPost.find();
-
         const userPostsModified = userPosts.map(post => {
             const modifiedPost = { ...post._doc }; // Create a clone of the document data
 
             // Check if an image is uploaded or selected for the post
             if (modifiedPost.img) {
-                if (modifiedPost.img.startsWith('uploads/')) {
+                if (modifiedPost.img.startsWith('public/images')) {
                     // Image uploaded via file upload
                     modifiedPost.imgUrl = `${req.protocol}://${req.get('host')}/${modifiedPost.img}`;
                     console.log('here');
@@ -92,8 +91,7 @@ app.post('/api', upload.single('img'), async (req, res) => {
         } else {
             let imgPath = '';
             if (req.file) {
-                imgPath = req.file.path;
-                console.log('req file path: ', req.file.path);
+                imgPath = req.file.filename;
             } else if (req.body.img) {
                 // Use the image URL from the form data if an image was selected from the browser
                 imgPath = req.body.img;

@@ -4,6 +4,7 @@ require('dotenv').config();
 // Next, almost always start with express, cors, and mongoose
 const express = require('express');
 const app = express();
+const path = require('path');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
@@ -12,7 +13,8 @@ app.use(cors());
 app.use(express.json());
 // express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
 // express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 
-app.use('/uploads', express.static('uploads'));
+// Serve static files from the "uploads" directory
+app.use(express.static(path.join(__dirname, 'uploads')));
 
 // Next, define our connection and connect to MongoDB via Mongoose.
 const connectDB = require('./config/dbConnect');

@@ -23,7 +23,29 @@ const UserPost = require('./models/UserPost');
 
 // Here, we will define miscellaneous things. For one, we will use multer which allows us to handle file uploads and store them on the server.
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' }); // Specify the directory where uploaded files will be stored 
+
+// Multer provides a method called disk storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        // The callback will take two parameters, the error and the path we want to save the file to. Null would mean there's no error.
+        cb(null, 'public/images');
+    },
+    filename: (req, file, cb) => {
+        // Name of file on server will be the same name as the file on the client side. Otherwise, Multer will give the file a random name.
+        cb(null, file.originalname);
+    }
+});
+
+const imageFileFilter = (req, file, cb) => {
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+        return cb(new Error('You can upload only image files!'), false);
+    }
+    // The callback will take an error (null), and a Boolean to see if the file can be stored.
+    cb(null, true);
+};
+
+const upload = multer({ storage: storage, fileFilter: imageFileFilter });
+
 
 // Now, include our requests here
 app.get('/api', async (req, res) => {
@@ -37,10 +59,13 @@ app.get('/api', async (req, res) => {
             if (modifiedPost.img) {
                 if (modifiedPost.img.startsWith('uploads/')) {
                     // Image uploaded via file upload
-                    modifiedPost.imgUrl = `http://localhost:5000/${modifiedPost.img}`;
+                    modifiedPost.imgUrl = `${req.protocol}://${req.get('host')}/${modifiedPost.img}`;
+                    console.log('here');
+                    console.log(modifiedPost.img);
                 } else {
                     // Image selected from browser
                     modifiedPost.imgUrl = modifiedPost.img;
+                    console.log('here instead?');
                 }
             }
 
@@ -68,6 +93,7 @@ app.post('/api', upload.single('img'), async (req, res) => {
             let imgPath = '';
             if (req.file) {
                 imgPath = req.file.path;
+                console.log('req file path: ', req.file.path);
             } else if (req.body.img) {
                 // Use the image URL from the form data if an image was selected from the browser
                 imgPath = req.body.img;
@@ -83,8 +109,6 @@ app.post('/api', upload.single('img'), async (req, res) => {
                 "img": imgPath, // access the path of the uploaded file
                 "paragraph": req.body.paragraph
             };
-
-
             const userPost = await UserPost.create(userPostData);
             res.json({ "message": "Form Submitted" })
         }
@@ -109,7 +133,7 @@ app.get('/api/:uniqueId', async (req, res) => {
             // Construct the image URL based on the image path. This is needed to show the backend image path onto the frontend.
             if (userPost.img) {
                 if (userPost.img.startsWith('uploads/')) {
-                    userPost.imgUrl = `http://localhost:5000/${userPost.img}`;
+                    userPost.imgUrl = `https://boardgames-api-attempt2.onrender.com/${userPost.img}`;
                 } else {
                     userPost.imgUrl = userPost.img;
                 }

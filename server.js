@@ -47,8 +47,8 @@ const upload = multer({ storage: storage, fileFilter: imageFileFilter });
 // express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
 // express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 
 // Serve static files from the "uploads" directory
-app.use('uploads', express.static(path.join(__dirname, 'uploads')));
-
+// app.use('uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static('uploads'));
 
 // Now, include our requests here
 app.get('/api', async (req, res) => {
@@ -93,7 +93,7 @@ app.post('/api', upload.single('img'), async (req, res) => {
         } else {
             let imgPath = '';
             if (req.file) {
-                imgPath = req.file.filename;
+                imgPath = req.file.path;
             } else if (req.body.img) {
                 // Use the image URL from the form data if an image was selected from the browser
                 imgPath = req.body.img;

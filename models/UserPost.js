@@ -33,6 +33,8 @@ const userPostSchema = new Schema({
     img: {
         // store it as a filepath.
         type: String,
+        data: Buffer,
+        contentType: String,
         required: false
     },
     paragraph: {

@@ -23,16 +23,16 @@ const UserPost = require('./models/UserPost');
 const multer = require('multer');
 
 // Multer provides a method called disk storage
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        // Name of file on server will be the same name as the file on the client side. Otherwise, Multer will give the file a random name.
-        let ext = path.extname(file.originalname);
-        cb(null, Date.now() + file.originalname);
-    }
-});
+// const storage = multer.diskStorage({
+//     destination: (req, file, cb) => {
+//         cb(null, 'uploads/');
+//     },
+//     filename: (req, file, cb) => {
+//         // Name of file on server will be the same name as the file on the client side. Otherwise, Multer will give the file a random name.
+//         let ext = path.extname(file.originalname);
+//         cb(null, Date.now() + file.originalname);
+//     }
+// });
 
 const imageFileFilter = (req, file, cb) => {
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
@@ -42,7 +42,8 @@ const imageFileFilter = (req, file, cb) => {
     cb(null, true);
 };
 
-const upload = multer({ storage: storage, fileFilter: imageFileFilter });
+// const upload = multer({ storage: storage, fileFilter: imageFileFilter });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
 // express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 

@@ -11,10 +11,6 @@ const mongoose = require('mongoose');
 // Next, add our app.use. We will use cors, express.json to pars JSON request bodies. App.use is a method provided by express to add middleware functions, which have access to the request and response objects. 
 app.use(cors());
 app.use(express.json());
-// express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
-// express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 
-// Serve static files from the "uploads" directory
-app.use(express.static(path.join(__dirname, 'uploads')));
 
 // Next, define our connection and connect to MongoDB via Mongoose.
 const connectDB = require('./config/dbConnect');
@@ -28,10 +24,13 @@ const multer = require('multer');
 
 // Multer provides a method called disk storage
 const storage = multer.diskStorage({
-    destination: 'uploads',
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
     filename: (req, file, cb) => {
         // Name of file on server will be the same name as the file on the client side. Otherwise, Multer will give the file a random name.
-        cb(null, file.originalname);
+        let ext = path.extname(file.originalname);
+        cb(null, Date.now() + file.originalname);
     }
 });
 
@@ -44,6 +43,11 @@ const imageFileFilter = (req, file, cb) => {
 };
 
 const upload = multer({ storage: storage, fileFilter: imageFileFilter });
+
+// express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
+// express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 
+// Serve static files from the "uploads" directory
+app.use('uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 // Now, include our requests here

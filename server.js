@@ -23,16 +23,16 @@ const UserPost = require('./models/UserPost');
 const multer = require('multer');
 
 // Multer provides a method called disk storage
-// const storage = multer.diskStorage({
-//     destination: (req, file, cb) => {
-//         cb(null, 'uploads/');
-//     },
-//     filename: (req, file, cb) => {
-//         // Name of file on server will be the same name as the file on the client side. Otherwise, Multer will give the file a random name.
-//         let ext = path.extname(file.originalname);
-//         cb(null, Date.now() + file.originalname);
-//     }
-// });
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        // Name of file on server will be the same name as the file on the client side. Otherwise, Multer will give the file a random name.
+        let ext = path.extname(file.originalname);
+        cb(null, Date.now() + file.originalname);
+    }
+});
 
 const imageFileFilter = (req, file, cb) => {
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
@@ -42,14 +42,16 @@ const imageFileFilter = (req, file, cb) => {
     cb(null, true);
 };
 
-// const upload = multer({ storage: storage, fileFilter: imageFileFilter });
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ storage: storage, fileFilter: imageFileFilter });
+// const upload = multer({ storage: multer.memoryStorage() });
 
 // express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
 // express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 
 // Serve static files from the "uploads" directory
 // app.use('uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/uploads', express.static('uploads'));
+// app.use('/uploads', express.static('uploads'));
+
+const axios = require('axios');
 
 // Now, include our requests here
 app.get('/api', async (req, res) => {
@@ -100,23 +102,33 @@ app.post('/api', upload.single('img'), async (req, res) => {
                 imgPath = req.body.img;
             }
 
-            const userPostData = {
-                "userId": req.body.userId,
-                "author": req.body.author,
-                "title": req.body.title,
-                "subTitle": req.body.subTitle,
-                "submissionTime": req.body.submissionTime,
-                "date": req.body.date,
-                "img": imgPath, // access the path of the uploaded file
-                "paragraph": req.body.paragraph
-            };
+            const currentDate = new Date();
+            const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            const formattedTime = currentDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+
+            // const userPostData = {
+            //     "userId": req.body.userId,
+            //     "author": req.body.author,
+            //     "title": req.body.title,
+            //     "subTitle": req.body.subTitle,
+            //     "submissionTime": 'this is the time',
+            //     "date": formattedDate,
+            //     "publicId": req.body.publicId,
+            //     "img": imgPath, // access the path of the uploaded file
+            //     "paragraph": req.body.paragraph
+            // };
+
             const userPost = await UserPost.create(userPostData);
             res.json({ "message": "Form Submitted" })
+            console.log('hello');
         }
     } catch (error) {
         // Check if a required entry is not filled out.
         if (error instanceof mongoose.Error.ValidationError) {
-            res.json({ error: 'incomplete form' })
+            res.json({
+                error: 'incomplete form'
+            })
         }
         console.log('Error: ', error);
     }
@@ -193,11 +205,33 @@ app.put('/api/:uniqueId', async (req, res) => {
 app.delete('/api/:uniqueId', async (req, res) => {
     try {
         const uniqueId = req.params.uniqueId;
-        const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
+        // const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
+        const deletedPost = await UserPost.findById(uniqueId);
 
         if (!deletedPost) {
             return res.status(404).json({ error: 'Post not found' });
         }
+
+        if (deletedPost.publicId) {
+            const formData = new FormData();
+            formData.append('public_id', deletedPost.publicId);
+            // formData.append('api_key', process.env.REACT_APP_CLOUDINARY_API_KEY);
+            // formData.append('api_secret', process.env.REACT_APP_CLOUDINARY_API_SECRET);
+            formData.append('api_key', 665282723972246);
+            formData.append('api_secret', qQpBcxnbZsArqC0uR6hMJSmOdI0);
+
+            const response = await axios.delete(`https://api.cloudinary.com/v1_1/da7edv0cg/delete_by_token`, {
+                data: formData
+            });
+
+            if (response.ok) {
+                console.log('Image deleted successfully');
+            } else {
+                console.error('Failed to delete image');
+            }
+        }
+
+        await deletedPost.remove();
 
         res.json({ message: 'Post deleted successfully' });
     } catch (err) {

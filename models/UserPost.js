@@ -23,11 +23,11 @@ const userPostSchema = new Schema({
         required: true
     },
     submissionTime: {
-        type: Date,
+        type: String,
         required: false
     },
     date: {
-        type: Date,
+        type: String,
         required: false
     },
     img: {
@@ -35,6 +35,10 @@ const userPostSchema = new Schema({
         type: String,
         data: Buffer,
         contentType: String,
+        required: false
+    },
+    publicId: {
+        type: String,
         required: false
     },
     paragraph: {

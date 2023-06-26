@@ -57,24 +57,23 @@ const axios = require('axios');
 app.get('/api', async (req, res) => {
     try {
         const userPosts = await UserPost.find();
-        // const userPostsModified = userPosts.map(post => {
-        //     const modifiedPost = { ...post._doc }; // Create a clone of the document data
+        const userPostsModified = userPosts.map(post => {
+            const modifiedPost = { ...post._doc }; // Create a clone of the document data
 
-        //     // Check if an image is uploaded or selected for the post
-        //     if (modifiedPost.img) {
-        //         if (modifiedPost.img.startsWith('uploads')) {
-        //             // Image uploaded via file upload
-        //             modifiedPost.imgUrl = `${req.protocol}://${req.get('host')}/${modifiedPost.img}`;
-        //             console.log(modifiedPost.img);
-        //         } else {
-        //             // Image selected from browser
-        //             modifiedPost.imgUrl = modifiedPost.img;
-        //             console.log('here instead?');
-        //         }
-        //     }
+            // Check if an image is uploaded or selected for the post
+            if (modifiedPost.img) {
+                if (modifiedPost.img.startsWith('uploads')) {
+                    // Image uploaded via file upload
+                    modifiedPost.imgUrl = `${req.protocol}://${req.get('host')}/${modifiedPost.img}`;
+                    console.log(modifiedPost.img);
+                } else {
+                    // Image selected from browser
+                    modifiedPost.imgUrl = modifiedPost.img;
+                }
+            }
 
-        //     return modifiedPost;
-        // });
+            return modifiedPost;
+        });
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -106,22 +105,21 @@ app.post('/api', upload.single('img'), async (req, res) => {
             const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
             const formattedTime = currentDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
-
-            // const userPostData = {
-            //     "userId": req.body.userId,
-            //     "author": req.body.author,
-            //     "title": req.body.title,
-            //     "subTitle": req.body.subTitle,
-            //     "submissionTime": 'this is the time',
-            //     "date": formattedDate,
-            //     "publicId": req.body.publicId,
-            //     "img": imgPath, // access the path of the uploaded file
-            //     "paragraph": req.body.paragraph
-            // };
+            const userPostData = {
+                "userId": req.body.userId,
+                "author": req.body.author,
+                "title": req.body.title,
+                "subTitle": req.body.subTitle,
+                "submissionTime": formattedTime,
+                "date": formattedDate,
+                "publicId": req.body.publicId,
+                "img": imgPath, // access the path of the uploaded file
+                "paragraph": req.body.paragraph
+            };
 
             const userPost = await UserPost.create(userPostData);
             res.json({ "message": "Form Submitted" })
-            console.log('hello');
+            // console.log('userPostData: ', userPostData);
         }
     } catch (error) {
         // Check if a required entry is not filled out.
@@ -144,21 +142,26 @@ app.get('/api/:uniqueId', async (req, res) => {
             res.setHeader('Content-Type', 'application/json');
 
             // Construct the image URL based on the image path. This is needed to show the backend image path onto the frontend.
-            if (userPost.img) {
-                if (userPost.img.startsWith('uploads/')) {
-                    userPost.imgUrl = `https://boardgames-api-attempt2.onrender.com/${userPost.img}`;
-                } else {
-                    userPost.imgUrl = userPost.img;
-                }
-            }
+            // if (userPost.img) {
+            //     if (userPost.img.startsWith('uploads/')) {
+            //         userPost.imgUrl = `https://boardgames-api-attempt2.onrender.com/${userPost.img}`;
+            //     } else {
+            //         userPost.imgUrl = userPost.img;
+            //     }
+            // }
 
             // Include the image URL into the response now.
-            const responseData = {
-                ...userPost.toObject(),
-                imgUrl: userPost.imgUrl
-            }
+            // const responseData = {
+            //     ...userPost.toObject(),
+            //     imgUrl: userPost.imgUrl
+            // }
 
-            res.json(responseData);
+            // console.log('response data: ', responseData);
+
+            // res.json(responseData);
+            console.log('user post: ', userPost)
+            res.json(userPost);
+
         } else {
             res.statusCode = 404;
             res.json({ message: 'User post not found' })
@@ -206,32 +209,11 @@ app.delete('/api/:uniqueId', async (req, res) => {
     try {
         const uniqueId = req.params.uniqueId;
         // const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
-        const deletedPost = await UserPost.findById(uniqueId);
+        const findPost = await UserPost.findById(uniqueId);
+        const { publicId } = findPost;
 
-        if (!deletedPost) {
-            return res.status(404).json({ error: 'Post not found' });
-        }
-
-        if (deletedPost.publicId) {
-            const formData = new FormData();
-            formData.append('public_id', deletedPost.publicId);
-            // formData.append('api_key', process.env.REACT_APP_CLOUDINARY_API_KEY);
-            // formData.append('api_secret', process.env.REACT_APP_CLOUDINARY_API_SECRET);
-            formData.append('api_key', 665282723972246);
-            formData.append('api_secret', qQpBcxnbZsArqC0uR6hMJSmOdI0);
-
-            const response = await axios.delete(`https://api.cloudinary.com/v1_1/da7edv0cg/delete_by_token`, {
-                data: formData
-            });
-
-            if (response.ok) {
-                console.log('Image deleted successfully');
-            } else {
-                console.error('Failed to delete image');
-            }
-        }
-
-        await deletedPost.remove();
+        // Ideally, I'd like to delete the image from Cloudinary as well. However, this seems to be a bit more complicated and will require more time to figure out.
+        const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
 
         res.json({ message: 'Post deleted successfully' });
     } catch (err) {

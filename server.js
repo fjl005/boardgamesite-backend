@@ -57,27 +57,10 @@ const axios = require('axios');
 app.get('/api', async (req, res) => {
     try {
         const userPosts = await UserPost.find();
-        const userPostsModified = userPosts.map(post => {
-            const modifiedPost = { ...post._doc }; // Create a clone of the document data
-
-            // Check if an image is uploaded or selected for the post
-            if (modifiedPost.img) {
-                if (modifiedPost.img.startsWith('uploads')) {
-                    // Image uploaded via file upload
-                    modifiedPost.imgUrl = `${req.protocol}://${req.get('host')}/${modifiedPost.img}`;
-                    console.log(modifiedPost.img);
-                } else {
-                    // Image selected from browser
-                    modifiedPost.imgUrl = modifiedPost.img;
-                }
-            }
-
-            return modifiedPost;
-        });
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
-        res.json(userPostsModified);
+        res.json(userPosts);
     } catch (error) {
         console.error('Error: ', error);
         res.statusCode = 500;
@@ -93,14 +76,6 @@ app.post('/api', upload.single('img'), async (req, res) => {
         if (existingPost) {
             res.json({ error: 'title already exists' });
         } else {
-            let imgPath = '';
-            if (req.file) {
-                imgPath = req.file.path;
-            } else if (req.body.img) {
-                // Use the image URL from the form data if an image was selected from the browser
-                imgPath = req.body.img;
-            }
-
             const currentDate = new Date();
             const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
             const formattedTime = currentDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -113,7 +88,7 @@ app.post('/api', upload.single('img'), async (req, res) => {
                 "submissionTime": formattedTime,
                 "date": formattedDate,
                 "publicId": req.body.publicId,
-                "img": imgPath, // access the path of the uploaded file
+                "img": req.body.img, // access the path of the uploaded file
                 "paragraph": req.body.paragraph
             };
 
@@ -140,25 +115,6 @@ app.get('/api/:uniqueId', async (req, res) => {
         if (userPost) {
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-
-            // Construct the image URL based on the image path. This is needed to show the backend image path onto the frontend.
-            // if (userPost.img) {
-            //     if (userPost.img.startsWith('uploads/')) {
-            //         userPost.imgUrl = `https://boardgames-api-attempt2.onrender.com/${userPost.img}`;
-            //     } else {
-            //         userPost.imgUrl = userPost.img;
-            //     }
-            // }
-
-            // Include the image URL into the response now.
-            // const responseData = {
-            //     ...userPost.toObject(),
-            //     imgUrl: userPost.imgUrl
-            // }
-
-            // console.log('response data: ', responseData);
-
-            // res.json(responseData);
             console.log('user post: ', userPost)
             res.json(userPost);
 
@@ -177,14 +133,9 @@ app.put('/api/:uniqueId', upload.single('img'), async (req, res) => {
     try {
         const uniqueId = req.params.uniqueId;
         const updateData = req.body;
-        console.log('updated data: ', updateData);
 
         // Check if any required fields are missing or empty
         if (!updateData.title || !updateData.subTitle || !updateData.author || !updateData.paragraph) {
-            console.log('updated title: ', updateData.title);
-            console.log('updated subtitle: ', updateData.subTitle);
-            console.log('updated author: ', updateData.author);
-            console.log('updated paragraph: ', updateData.paragraph);
 
             return res.json({ error: 'incomplete form' });
         }
@@ -196,12 +147,6 @@ app.put('/api/:uniqueId', upload.single('img'), async (req, res) => {
         if (!updatedPost) {
             return res.status(404).json({ error: 'Post not found' });
         }
-
-        // Check if no changes were made
-        // const changedFields = Object.keys(updateData).filter(key => updatedPost[key] !== updateData[key]);
-        // if (changedFields.length === 0) {
-        //     return res.status(200).json({ error: 'no changes' });
-        // }
 
         res.json(updatedPost);
     } catch (error) {

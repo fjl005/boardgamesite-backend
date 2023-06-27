@@ -173,13 +173,19 @@ app.get('/api/:uniqueId', async (req, res) => {
     }
 });
 
-app.put('/api/:uniqueId', async (req, res) => {
+app.put('/api/:uniqueId', upload.single('img'), async (req, res) => {
     try {
         const uniqueId = req.params.uniqueId;
         const updateData = req.body;
+        console.log('updated data: ', updateData);
 
         // Check if any required fields are missing or empty
         if (!updateData.title || !updateData.subTitle || !updateData.author || !updateData.paragraph) {
+            console.log('updated title: ', updateData.title);
+            console.log('updated subtitle: ', updateData.subTitle);
+            console.log('updated author: ', updateData.author);
+            console.log('updated paragraph: ', updateData.paragraph);
+
             return res.json({ error: 'incomplete form' });
         }
 

@@ -51,6 +51,14 @@ const upload = multer({ storage: storage, fileFilter: imageFileFilter });
 // app.use('uploads', express.static(path.join(__dirname, 'uploads')));
 // app.use('/uploads', express.static('uploads'));
 
+const cloudinary = require('cloudinary');
+
+cloudinary.config({
+    cloud_name: process.env.REACT_APP_CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.REACT_APP_CLOUDINARY_API_KEY,
+    api_secret: process.env.REACT_APP_CLOUDINARY_API_SECRET
+});
+
 const axios = require('axios');
 
 // Now, include our requests here
@@ -160,8 +168,8 @@ app.delete('/api/:uniqueId', async (req, res) => {
     try {
         const uniqueId = req.params.uniqueId;
         // const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
-        const findPost = await UserPost.findById(uniqueId);
-        const { publicId } = findPost;
+        // const findPost = await UserPost.findById(uniqueId);
+        // const { publicId } = findPost;
 
         // Ideally, I'd like to delete the image from Cloudinary as well. However, this seems to be a bit more complicated and will require more time to figure out.
         const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
@@ -175,6 +183,15 @@ app.delete('/api/:uniqueId', async (req, res) => {
 
 app.delete('/api', async (req, res) => {
     try {
+        const userPosts = await UserPost.find();
+
+        const destroyPromises = userPosts.map((objPost) => {
+            if (objPost.publicId) {
+                return cloudinary.uploader.destroy(objPost.publicId);
+            }
+        });
+
+        await Promise.all(destroyPromises);
         await UserPost.deleteMany();
         res.json({ message: 'All user information deleted successfully' });
     } catch (err) {
@@ -182,6 +199,55 @@ app.delete('/api', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+// CLOUDINARY REQUESTS BELOW
+app.post('/cloudinary', async (req, res) => {
+    try {
+        res.send('successful');
+    } catch (error) {
+        console.log('Error: ', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// app.delete('/cloudinary', async (req, res) => {
+//     try {
+//         const userPosts = await UserPost.find();
+
+//         console.log('user posts: ', userPosts);
+//         res.statusCode = 200;
+//         res.setHeader('Content-Type', 'application/json');
+//         res.json(userPosts);
+//     } catch (error) {
+//         console.error('Error: ', error);
+//         res.statusCode = 500;
+//         res.json({ message: 'Internal server error' });
+//     }
+// });
+
+app.delete('/cloudinary/:uniqueId', async (req, res) => {
+    const uniqueId = req.params.uniqueId;
+    try {
+        let publicId;
+        const userPost = await UserPost.findById(uniqueId);
+        if (userPost && userPost.publicId) {
+            publicId = userPost.publicId;
+            console.log('public id is: ', publicId);
+            await cloudinary.uploader.destroy(publicId);
+            console.log('img deleted from cloudinary??!');
+            res.json({ message: 'Image deleted from Cloudinary successfully' });
+        } else {
+            console.log('public id is: ', publicId);
+            console.log(userPost);
+            console.log('no image needed to be deleted from cloudinary');
+            res.json({ message: 'no image needs to be deleted' });
+        }
+
+    } catch (error) {
+        console.log('Error: ', error);
+        res.status(500).json({ error: 'Internal Server Error from cloudinary unique Id endpoint' });
+    }
+})
 
 // Lastly, let's have our mongoose connection
 mongoose.connection.once('open', () => {

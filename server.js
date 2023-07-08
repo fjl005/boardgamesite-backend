@@ -19,38 +19,6 @@ connectDB();
 // Next, define our models here
 const UserPost = require('./models/UserPost');
 
-// Here, we will define miscellaneous things. For one, we will use multer which allows us to handle file uploads and store them on the server.
-const multer = require('multer');
-
-// Multer provides a method called disk storage
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        // Name of file on server will be the same name as the file on the client side. Otherwise, Multer will give the file a random name.
-        let ext = path.extname(file.originalname);
-        cb(null, Date.now() + file.originalname);
-    }
-});
-
-const imageFileFilter = (req, file, cb) => {
-    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-        return cb(new Error('You can upload only image files!'), false);
-    }
-    // The callback will take an error (null), and a Boolean to see if the file can be stored.
-    cb(null, true);
-};
-
-const upload = multer({ storage: storage, fileFilter: imageFileFilter });
-// const upload = multer({ storage: multer.memoryStorage() });
-
-// express.static() is a built in middleware function that serves static files. It takes a directory path as an argument and returns a middleware function that serves static files from that directory.
-// express.static('uploads') is a middleware function that serves static files from the 'uploads' directory. 
-// Serve static files from the "uploads" directory
-// app.use('uploads', express.static(path.join(__dirname, 'uploads')));
-// app.use('/uploads', express.static('uploads'));
-
 const cloudinary = require('cloudinary');
 
 cloudinary.config({
@@ -58,8 +26,6 @@ cloudinary.config({
     api_key: process.env.REACT_APP_CLOUDINARY_API_KEY,
     api_secret: process.env.REACT_APP_CLOUDINARY_API_SECRET
 });
-
-const axios = require('axios');
 
 // Now, include our requests here
 app.get('/api', async (req, res) => {
@@ -76,12 +42,14 @@ app.get('/api', async (req, res) => {
     }
 });
 
-app.post('/api', upload.single('img'), async (req, res) => {
+app.post('/api', async (req, res) => {
+
     try {
         const { title } = req.body;
         const existingPost = await UserPost.findOne({ title });
 
         if (existingPost) {
+            console.log(req.body);
             res.json({ error: 'title already exists' });
         } else {
             const currentDate = new Date();
@@ -101,8 +69,8 @@ app.post('/api', upload.single('img'), async (req, res) => {
             };
 
             const userPost = await UserPost.create(userPostData);
+            console.log(req.body);
             res.json({ "message": "Form Submitted" })
-            // console.log('userPostData: ', userPostData);
         }
     } catch (error) {
         // Check if a required entry is not filled out.
@@ -137,14 +105,14 @@ app.get('/api/:uniqueId', async (req, res) => {
     }
 });
 
-app.put('/api/:uniqueId', upload.single('img'), async (req, res) => {
+app.put('/api/:uniqueId', async (req, res) => {
+
     try {
         const uniqueId = req.params.uniqueId;
         const updateData = req.body;
 
         // Check if any required fields are missing or empty
         if (!updateData.title || !updateData.subTitle || !updateData.author || !updateData.paragraph) {
-
             return res.json({ error: 'incomplete form' });
         }
 
@@ -167,9 +135,6 @@ app.put('/api/:uniqueId', upload.single('img'), async (req, res) => {
 app.delete('/api/:uniqueId', async (req, res) => {
     try {
         const uniqueId = req.params.uniqueId;
-        // const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
-        // const findPost = await UserPost.findById(uniqueId);
-        // const { publicId } = findPost;
 
         // Ideally, I'd like to delete the image from Cloudinary as well. However, this seems to be a bit more complicated and will require more time to figure out.
         const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
@@ -203,27 +168,13 @@ app.delete('/api', async (req, res) => {
 // CLOUDINARY REQUESTS BELOW
 app.post('/cloudinary', async (req, res) => {
     try {
+        console.log('this part works!')
         res.send('successful');
     } catch (error) {
         console.log('Error: ', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-
-// app.delete('/cloudinary', async (req, res) => {
-//     try {
-//         const userPosts = await UserPost.find();
-
-//         console.log('user posts: ', userPosts);
-//         res.statusCode = 200;
-//         res.setHeader('Content-Type', 'application/json');
-//         res.json(userPosts);
-//     } catch (error) {
-//         console.error('Error: ', error);
-//         res.statusCode = 500;
-//         res.json({ message: 'Internal server error' });
-//     }
-// });
 
 app.delete('/cloudinary/:uniqueId', async (req, res) => {
     const uniqueId = req.params.uniqueId;
@@ -247,18 +198,13 @@ app.delete('/cloudinary/:uniqueId', async (req, res) => {
         console.log('Error: ', error);
         res.status(500).json({ error: 'Internal Server Error from cloudinary unique Id endpoint' });
     }
-})
+});
 
 // Lastly, let's have our mongoose connection
 mongoose.connection.once('open', () => {
     console.log('Connected to MongoDB');
-    // app.listen(5000, () => console.log('Server Started at Port 5000'));
+    const port = process.env.PORT || 5000;
+    app.listen(port, () => {
+        console.log(`Server started on port ${port}`);
+    });
 });
-
-const port = process.env.PORT || 5000;
-
-app.listen(port, () => {
-    console.log(`Server started on port ${port}`);
-});
-
-// testing if my remote git works again

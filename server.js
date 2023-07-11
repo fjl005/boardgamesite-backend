@@ -4,7 +4,6 @@ require('dotenv').config();
 // Next, almost always start with express, cors, and mongoose
 const express = require('express');
 const app = express();
-const path = require('path');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
@@ -19,6 +18,7 @@ connectDB();
 // Next, define our models here
 const UserPost = require('./models/UserPost');
 
+// Next, define Cloudinary, mainly so we can delete photos. 
 const cloudinary = require('cloudinary');
 
 cloudinary.config({
@@ -31,26 +31,25 @@ cloudinary.config({
 app.get('/api', async (req, res) => {
     try {
         const userPosts = await UserPost.find();
-
         res.statusCode = 200;
+        // Here, we will define the headers and send the response formatted based on the headers. However, for the remainder of the code, the response will always be in JSON format. So, I will be using res.json as a way to not only set the header to application/json, but also send the data in json format.
         res.setHeader('Content-Type', 'application/json');
-        res.json(userPosts);
+        res.send(JSON.stringify(userPosts));
     } catch (error) {
         console.error('Error: ', error);
         res.statusCode = 500;
-        res.json({ message: 'Internal server error' });
+        res.send(JSON.stringify({ message: 'Internal server error' }));
     }
 });
 
 app.post('/api', async (req, res) => {
-
     try {
         const { title } = req.body;
         const existingPost = await UserPost.findOne({ title });
 
         if (existingPost) {
             console.log(req.body);
-            res.json({ error: 'title already exists' });
+            return res.status(500).json({ error: 'title already exists' });
         } else {
             const currentDate = new Date();
             const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -64,20 +63,19 @@ app.post('/api', async (req, res) => {
                 "submissionTime": formattedTime,
                 "date": formattedDate,
                 "publicId": req.body.publicId,
-                "img": req.body.img, // access the path of the uploaded file
+                "img": req.body.img,
                 "paragraph": req.body.paragraph
             };
 
             const userPost = await UserPost.create(userPostData);
-            console.log(req.body);
+            res.statusCode = 200;
             res.json({ "message": "Form Submitted" })
         }
     } catch (error) {
         // Check if a required entry is not filled out.
         if (error instanceof mongoose.Error.ValidationError) {
-            res.json({
-                error: 'incomplete form'
-            })
+            res.statusCode = 400;
+            res.json({ error: 'incomplete form' });
         }
         console.log('Error: ', error);
     }
@@ -87,13 +85,9 @@ app.get('/api/:uniqueId', async (req, res) => {
     try {
         const uniqueId = req.params.uniqueId;
         const userPost = await UserPost.findById(uniqueId);
-
         if (userPost) {
             res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            console.log('user post: ', userPost)
             res.json(userPost);
-
         } else {
             res.statusCode = 404;
             res.json({ message: 'User post not found' })
@@ -113,7 +107,7 @@ app.put('/api/:uniqueId', async (req, res) => {
 
         // Check if any required fields are missing or empty
         if (!updateData.title || !updateData.subTitle || !updateData.author || !updateData.paragraph) {
-            return res.json({ error: 'incomplete form' });
+            return res.status(400).json({ error: 'incomplete form' });
         }
 
         const updatedPost = await UserPost.findByIdAndUpdate(uniqueId, updateData, {
@@ -124,6 +118,7 @@ app.put('/api/:uniqueId', async (req, res) => {
             return res.status(404).json({ error: 'Post not found' });
         }
 
+        res.statusCode = 200;
         res.json(updatedPost);
     } catch (error) {
         console.error('Error updating user:', error);
@@ -138,7 +133,11 @@ app.delete('/api/:uniqueId', async (req, res) => {
 
         // Ideally, I'd like to delete the image from Cloudinary as well. However, this seems to be a bit more complicated and will require more time to figure out.
         const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
+        if (!deletedPost) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
 
+        res.statusCode = 200;
         res.json({ message: 'Post deleted successfully' });
     } catch (err) {
         console.log('Error: ', err);
@@ -150,14 +149,21 @@ app.delete('/api', async (req, res) => {
     try {
         const userPosts = await UserPost.find();
 
+        if (!userPosts) {
+            return res.status(404).json({ error: "Posts not found" });
+        }
+
         const destroyPromises = userPosts.map((objPost) => {
             if (objPost.publicId) {
                 return cloudinary.uploader.destroy(objPost.publicId);
             }
         });
 
+        // Wait for all the deletions in destroyPromises to complete before proceeding.
         await Promise.all(destroyPromises);
+
         await UserPost.deleteMany();
+        res.statusCode = 200;
         res.json({ message: 'All user information deleted successfully' });
     } catch (err) {
         console.log('Error: ', err);
@@ -168,7 +174,7 @@ app.delete('/api', async (req, res) => {
 // CLOUDINARY REQUESTS BELOW
 app.post('/cloudinary', async (req, res) => {
     try {
-        console.log('this part works!')
+        res.statusCode = 200;
         res.send('successful');
     } catch (error) {
         console.log('Error: ', error);
@@ -181,18 +187,15 @@ app.delete('/cloudinary/:uniqueId', async (req, res) => {
     try {
         let publicId;
         const userPost = await UserPost.findById(uniqueId);
+        res.statusCode = 200;
+
         if (userPost && userPost.publicId) {
             publicId = userPost.publicId;
-            console.log('public id is: ', publicId);
             await cloudinary.uploader.destroy(publicId);
-            console.log('img deleted from cloudinary??!');
-            res.json({ message: 'Image deleted from Cloudinary successfully' });
-        } else {
-            console.log('public id is: ', publicId);
-            console.log(userPost);
-            console.log('no image needed to be deleted from cloudinary');
-            res.json({ message: 'no image needs to be deleted' });
+            return res.json({ message: 'Image deleted from Cloudinary successfully' });
         }
+
+        return res.json({ message: 'no image needs to be deleted' });
 
     } catch (error) {
         console.log('Error: ', error);

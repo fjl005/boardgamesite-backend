@@ -1,24 +1,22 @@
-// First, require the dot env to connect our mongo DB
+// First, import all the requirements: .env, express, cors, mongoose.
 require('dotenv').config();
-
-// Next, almost always start with express, cors, and mongoose
 const express = require('express');
 const app = express();
 const cors = require('cors');
 const mongoose = require('mongoose');
 
-// Next, add our app.use. We will use cors, express.json to pars JSON request bodies. App.use is a method provided by express to add middleware functions, which have access to the request and response objects. 
+// Second, introduce middlewares to our Express App (via app.use). (1) CORS, (2) express.JSON (to parse JSON request bodies).
 app.use(cors());
 app.use(express.json());
 
-// Next, define our connection and connect to MongoDB via Mongoose.
+// Third, define our connection and connect to MongoDB via Mongoose.
 const connectDB = require('./config/dbConnect');
 connectDB();
 
-// Next, define our models here
+// Fourth, define our models here. In this case, we only have one for the articles people can post. 
 const UserPost = require('./models/UserPost');
 
-// Next, define Cloudinary, mainly so we can delete photos. 
+// Fifth, define Cloudinary, and have it configured based on data stored in our .env file.
 const cloudinary = require('cloudinary');
 
 cloudinary.config({
@@ -27,7 +25,7 @@ cloudinary.config({
     api_secret: process.env.REACT_APP_CLOUDINARY_API_SECRET
 });
 
-// Now, include our requests here
+// Sixth, define our backend requests. Since there aren't a lot of endpoints, we won't use express router. 
 app.get('/api', async (req, res) => {
     try {
         const userPosts = await UserPost.find();
@@ -44,11 +42,12 @@ app.get('/api', async (req, res) => {
 
 app.post('/api', async (req, res) => {
     try {
-        const { title } = req.body;
+        const { reqBody } = req.body;
+        const { title } = reqBody;
         const existingPost = await UserPost.findOne({ title });
 
         if (existingPost) {
-            console.log(req.body);
+            console.log(reqBody);
             return res.status(500).json({ error: 'title already exists' });
         } else {
             const currentDate = new Date();
@@ -56,20 +55,20 @@ app.post('/api', async (req, res) => {
             const formattedTime = currentDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
             const userPostData = {
-                "userId": req.body.userId,
-                "author": req.body.author,
-                "title": req.body.title,
-                "subTitle": req.body.subTitle,
+                "userId": reqBody.userId,
+                "author": reqBody.author,
+                "title": reqBody.title,
+                "subTitle": reqBody.subTitle,
                 "submissionTime": formattedTime,
                 "date": formattedDate,
-                "publicId": req.body.publicId,
-                "img": req.body.img,
-                "paragraph": req.body.paragraph
+                "publicId": reqBody.publicId,
+                "img": reqBody.img,
+                "paragraph": reqBody.paragraph
             };
 
             const userPost = await UserPost.create(userPostData);
             res.statusCode = 200;
-            res.json({ "message": "Form Submitted" })
+            res.json({ "message": "Form Submitted" });
         }
     } catch (error) {
         // Check if a required entry is not filled out.
@@ -81,10 +80,11 @@ app.post('/api', async (req, res) => {
     }
 });
 
-app.get('/api/:uniqueId', async (req, res) => {
+
+app.get('/api/:postId', async (req, res) => {
     try {
-        const uniqueId = req.params.uniqueId;
-        const userPost = await UserPost.findById(uniqueId);
+        const postId = req.params.postId;
+        const userPost = await UserPost.findById(postId);
         if (userPost) {
             res.statusCode = 200;
             res.json(userPost);
@@ -99,18 +99,23 @@ app.get('/api/:uniqueId', async (req, res) => {
     }
 });
 
-app.put('/api/:uniqueId', async (req, res) => {
+app.put('/api/:postId', async (req, res) => {
 
     try {
-        const uniqueId = req.params.uniqueId;
-        const updateData = req.body;
+        const postId = req.params.postId;
+        const { reqBody } = req.body;
+        const {
+            title,
+            subTitle,
+            author,
+            paragraph
+        } = reqBody;
 
-        // Check if any required fields are missing or empty
-        if (!updateData.title || !updateData.subTitle || !updateData.author || !updateData.paragraph) {
+        if (!title || !subTitle || !author || !paragraph) {
             return res.status(400).json({ error: 'incomplete form' });
         }
 
-        const updatedPost = await UserPost.findByIdAndUpdate(uniqueId, updateData, {
+        const updatedPost = await UserPost.findByIdAndUpdate(postId, reqBody, {
             new: true,
         });
 
@@ -127,12 +132,10 @@ app.put('/api/:uniqueId', async (req, res) => {
 });
 
 
-app.delete('/api/:uniqueId', async (req, res) => {
+app.delete('/api/:postId', async (req, res) => {
     try {
-        const uniqueId = req.params.uniqueId;
-
-        // Ideally, I'd like to delete the image from Cloudinary as well. However, this seems to be a bit more complicated and will require more time to figure out.
-        const deletedPost = await UserPost.findByIdAndDelete(uniqueId);
+        const postId = req.params.postId;
+        const deletedPost = await UserPost.findByIdAndDelete(postId);
         if (!deletedPost) {
             return res.status(404).json({ error: 'Post not found' });
         }
@@ -159,7 +162,6 @@ app.delete('/api', async (req, res) => {
             }
         });
 
-        // Wait for all the deletions in destroyPromises to complete before proceeding.
         await Promise.all(destroyPromises);
 
         await UserPost.deleteMany();
@@ -172,7 +174,7 @@ app.delete('/api', async (req, res) => {
 });
 
 // CLOUDINARY REQUESTS BELOW
-app.post('/cloudinary', async (req, res) => {
+app.get('/cloudinary', async (req, res) => {
     try {
         res.statusCode = 200;
         res.send('successful');

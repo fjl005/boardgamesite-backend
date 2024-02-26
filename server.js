@@ -1,22 +1,22 @@
-// First, import all the requirements: .env, express, cors, mongoose.
+// First, import all necessary modules: .env, express, cors, mongoose.
 require('dotenv').config();
 const express = require('express');
 const app = express();
 const cors = require('cors');
 const mongoose = require('mongoose');
 
+
 // Second, introduce middlewares to our Express App (via app.use). (1) CORS, (2) express.JSON (to parse JSON request bodies).
 app.use(cors());
 app.use(express.json());
+
 
 // Third, define our connection and connect to MongoDB via Mongoose.
 const connectDB = require('./config/dbConnect');
 connectDB();
 
-// Fourth, define our models here. In this case, we only have one for the articles people can post. 
-const UserPost = require('./models/UserPost');
 
-// Fifth, define Cloudinary, and have it configured based on data stored in our .env file.
+// Fourth, define Cloudinary, and have it configured based on data stored in our .env file.
 const cloudinary = require('cloudinary');
 
 cloudinary.config({
@@ -26,7 +26,7 @@ cloudinary.config({
 });
 
 
-// Sixth, define our routes.
+// Fifth, define our routes.
 const router = express.Router();
 const apiRouter = require('./routes/apiRouter');
 const cloudinaryRouter = require('./routes/cloudinaryRouter');
@@ -36,7 +36,7 @@ router.use('/api', apiRouter);
 router.use('/cloudinary', cloudinaryRouter);
 
 
-// Lastly, let's have our mongoose connection
+// Lastly, let's set up our server once the mongoDB connection is established.
 mongoose.connection.once('open', () => {
     console.log('Connected to MongoDB');
     const port = process.env.PORT || 5000;

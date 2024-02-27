@@ -17,13 +17,13 @@ connectDB();
 
 
 // Fourth, define Cloudinary, and have it configured based on data stored in our .env file.
-const cloudinary = require('cloudinary');
+// const cloudinary = require('cloudinary');
 
-cloudinary.config({
-    cloud_name: process.env.REACT_APP_CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.REACT_APP_CLOUDINARY_API_KEY,
-    api_secret: process.env.REACT_APP_CLOUDINARY_API_SECRET
-});
+// cloudinary.config({
+//     cloud_name: process.env.REACT_APP_CLOUDINARY_CLOUD_NAME,
+//     api_key: process.env.REACT_APP_CLOUDINARY_API_KEY,
+//     api_secret: process.env.REACT_APP_CLOUDINARY_API_SECRET
+// });
 
 
 // Fifth, define our routes.
@@ -44,3 +44,5 @@ mongoose.connection.once('open', () => {
         console.log(`Server started on port ${port}`);
     });
 });
+
+// module.exports = cloudinary;

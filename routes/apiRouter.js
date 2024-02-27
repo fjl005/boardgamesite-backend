@@ -1,6 +1,7 @@
 const UserPost = require('../models/UserPost');
 const express = require('express');
 const apiRouter = express.Router();
+const cloudinary = require('../config/cloudinaryConfig');
 
 apiRouter.get('/', async (req, res) => {
     try {

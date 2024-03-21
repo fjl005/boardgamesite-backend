@@ -35,6 +35,10 @@ app.use('/', router);
 router.use('/api', apiRouter);
 router.use('/cloudinary', cloudinaryRouter);
 
+app.get('/', async (req, res) => {
+    res.send('Server works like a charm!');
+})
+
 
 // Lastly, let's set up our server once the mongoDB connection is established.
 mongoose.connection.once('open', () => {
